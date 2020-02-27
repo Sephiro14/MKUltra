@@ -3,7 +3,6 @@ package com.chaosbuffalo.mkultra.network;
 import com.chaosbuffalo.mkultra.client.gui.*;
 import com.chaosbuffalo.mkultra.core.IClassProvider;
 import com.chaosbuffalo.mkultra.init.ModItems;
-import com.chaosbuffalo.mkultra.log.Log;
 import com.chaosbuffalo.mkultra.tiles.TileEntityMKSpawner;
 import com.chaosbuffalo.mkultra.tiles.TileEntityNPCSpawner;
 import net.minecraft.entity.player.EntityPlayer;
@@ -32,6 +31,7 @@ public class ModGuiHandler implements IGuiHandler {
     public static final int NPC_SPAWNER_EQUIPMENT_SCREEN = 9;
     public static final int LEARN_CLASS_FROM_TILE_ENTITY_SCREEN = 10;
     public static final int TALENT_SCREEN = 11;
+    public static final int TALENT_SCREEN_VIEW = 12;
 
     @Override
     public Object getServerGuiElement(int ID, EntityPlayer player, World world, int x, int y, int z) {
@@ -118,8 +118,10 @@ public class ModGuiHandler implements IGuiHandler {
             TileEntity te = world.getTileEntity(pos);
             if (te instanceof TileEntityNPCSpawner) {
                 TileEntityNPCSpawner containerTileEntity = (TileEntityNPCSpawner) te;
-                return new OrbMotherGui(containerTileEntity, player);
+                return new OrbMotherGui(player);
             }
+        } else if (ID == TALENT_SCREEN_VIEW) {
+            return new TalentTreeSelectionScreen(player, false);
         }
 
         return null;

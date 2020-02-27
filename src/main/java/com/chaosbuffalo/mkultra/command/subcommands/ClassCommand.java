@@ -31,6 +31,7 @@ public class ClassCommand extends CommandTreeBase {
         addSubcommand(new List());
         addSubcommand(new Active());
         addSubcommand(new Reset());
+        addSubcommand(new Talents());
         addSubcommand(new CommandTreeHelp(this)); // MUST be last
     }
 
@@ -396,6 +397,22 @@ public class ClassCommand extends CommandTreeBase {
             } else {
                 sender.sendMessage(new TextComponentString("Failed to reset class abilities"));
             }
+        }
+    }
+
+    static class Talents extends MKClassCommand {
+        @Nonnull
+        @Override
+        public String getName() {
+            return "talents";
+        }
+
+        @Override
+        public void execute(@Nonnull MinecraftServer server, @Nonnull ICommandSender sender, String[] args) throws CommandException {
+            EntityPlayerMP player = getCommandSenderAsPlayer(sender);
+
+            player.sendMessage(new TextComponentString("Opening talent view GUI"));
+            MKUltra.packetHandler.sendTo(new ForceOpenClientGUIPacket(ModGuiHandler.TALENT_SCREEN_VIEW), player);
         }
     }
 }
