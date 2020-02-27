@@ -21,7 +21,7 @@ import net.minecraft.util.ResourceLocation;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-public class OrbMotherGui extends MKScreen {
+public class OrbMotherGui extends MKScreen implements IPlayerDataScreen {
 
     private EntityPlayer player;
     private TileEntityNPCSpawner spawner;
@@ -38,6 +38,7 @@ public class OrbMotherGui extends MKScreen {
         treeView = null;
     }
 
+    @Override
     public void handlePlayerDataUpdate(PlayerClassEvent.Updated event) {
         if (!event.isCurrentClass())
             return;

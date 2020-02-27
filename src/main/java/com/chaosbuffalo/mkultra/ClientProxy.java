@@ -1,9 +1,6 @@
 package com.chaosbuffalo.mkultra;
 
-import com.chaosbuffalo.mkultra.client.gui.AbilityBar;
-import com.chaosbuffalo.mkultra.client.gui.OrbMotherGui;
-import com.chaosbuffalo.mkultra.client.gui.PartyPanel;
-import com.chaosbuffalo.mkultra.client.gui.PlayerClassScreen;
+import com.chaosbuffalo.mkultra.client.gui.*;
 import com.chaosbuffalo.mkultra.client.render.entities.EntityRenderRegister;
 import com.chaosbuffalo.mkultra.core.events.PlayerClassEvent;
 import com.chaosbuffalo.mkultra.event.ClientKeyHandler;
@@ -50,12 +47,8 @@ public class ClientProxy extends CommonProxy {
             return;
 
         Minecraft mc = Minecraft.getMinecraft();
-        if (mc.currentScreen instanceof PlayerClassScreen) {
-            PlayerClassScreen screen = (PlayerClassScreen) mc.currentScreen;
-            screen.handlePlayerDataUpdate(event);
-        } else if (mc.currentScreen instanceof OrbMotherGui) {
-            OrbMotherGui screen = (OrbMotherGui) mc.currentScreen;
-            screen.handlePlayerDataUpdate(event);
+        if (mc.currentScreen instanceof IPlayerDataScreen) {
+            ((IPlayerDataScreen) mc.currentScreen).handlePlayerDataUpdate(event);
         }
     }
 }

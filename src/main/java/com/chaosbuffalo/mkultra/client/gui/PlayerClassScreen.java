@@ -20,7 +20,7 @@ import java.util.*;
 /**
  * Created by Jacob on 3/16/2016.
  */
-public class PlayerClassScreen extends MKScreen {
+public class PlayerClassScreen extends MKScreen implements IPlayerDataScreen {
 
     private int PANEL_WIDTH = 320;
     private int PANEL_HEIGHT = 256;
@@ -67,6 +67,7 @@ public class PlayerClassScreen extends MKScreen {
         super();
     }
 
+    @Override
     public void handlePlayerDataUpdate(PlayerClassEvent.Updated event) {
         if (!event.isCurrentClass())
             return;
