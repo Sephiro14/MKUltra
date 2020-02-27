@@ -14,7 +14,6 @@ import net.minecraft.entity.ai.attributes.AbstractAttributeMap;
 import net.minecraft.entity.ai.attributes.IAttribute;
 import net.minecraft.entity.ai.attributes.IAttributeInstance;
 import net.minecraft.util.ResourceLocation;
-import org.lwjgl.opengl.GL11;
 
 import java.util.*;
 
@@ -264,7 +263,7 @@ public class PlayerClassScreen extends MKScreen {
 
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         this.mc.renderEngine.bindTexture(GuiTextures.CLASS_BACKGROUND_GRAPHIC);
-        GL11.glDisable(GL11.GL_LIGHTING);
+        GlStateManager.disableLighting();
         drawModalRectWithCustomSizedTexture(xPos, yPos,
                 0, 0,
                 PANEL_WIDTH, PANEL_HEIGHT,

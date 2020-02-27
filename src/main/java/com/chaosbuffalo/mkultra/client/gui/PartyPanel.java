@@ -13,7 +13,6 @@ import net.minecraft.scoreboard.Team;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
 
@@ -66,7 +65,7 @@ public class PartyPanel extends Gui {
         int partyStartY = getPartyStartY(partySize);
         int partyStartX = getPartyStartX();
 
-        GL11.glDisable(GL11.GL_LIGHTING);
+        GlStateManager.disableLighting();
         for (EntityPlayer member : members) {
             drawPartyMember(member, pCount, partyStartX, partyStartY);
             pCount += 1;

@@ -11,7 +11,6 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import org.lwjgl.opengl.GL11;
 
 import java.util.Collection;
 import java.util.Comparator;
@@ -52,7 +51,7 @@ public abstract class ChooseClassScreen extends GuiScreen {
         ResourceLocation loc = new ResourceLocation(MKUltra.MODID, "textures/gui/demo_background.png");
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         this.mc.renderEngine.bindTexture(loc);
-        GL11.glDisable(GL11.GL_LIGHTING);
+        GlStateManager.disableLighting();
         drawModalRectWithCustomSizedTexture(xPos, yPos, 0, 0, panelWidth, panelHeight, 256, 256);
         int titleHeight = 15;
         this.fontRenderer.drawString("Choose Your Class: ", xPos + 15, yPos + 4, 8129636);

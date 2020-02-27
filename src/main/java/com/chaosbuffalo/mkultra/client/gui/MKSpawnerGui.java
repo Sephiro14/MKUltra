@@ -13,7 +13,6 @@ import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.util.ResourceLocation;
 import org.lwjgl.input.Mouse;
-import org.lwjgl.opengl.GL11;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -80,7 +79,7 @@ public class MKSpawnerGui extends GuiScreen {
         ResourceLocation loc = new ResourceLocation(MKUltra.MODID, "textures/gui/full_background.png");
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         this.mc.renderEngine.bindTexture(loc);
-        GL11.glDisable(GL11.GL_LIGHTING);
+        GlStateManager.disableLighting();
         drawModalRectWithCustomSizedTexture(xPos, yPos, 0, 0, panelWidth, panelHeight,
                 256, 256);
         int titleHeight = 13;

@@ -17,7 +17,6 @@ import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.util.ResourceLocation;
-import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -247,7 +246,7 @@ public class OrbMotherGui extends MKScreen {
         ResourceLocation loc = new ResourceLocation(MKUltra.MODID, "textures/gui/background_320.png");
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         this.mc.renderEngine.bindTexture(loc);
-        GL11.glDisable(GL11.GL_LIGHTING);
+        GlStateManager.disableLighting();
         drawModalRectWithCustomSizedTexture(xPos, yPos,
                 0, 0,
                 panelWidth, panelHeight,

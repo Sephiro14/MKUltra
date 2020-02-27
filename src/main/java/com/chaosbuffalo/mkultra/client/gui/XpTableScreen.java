@@ -8,7 +8,6 @@ import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.util.ResourceLocation;
-import org.lwjgl.opengl.GL11;
 
 /**
  * Created by Jacob on 3/22/2016.
@@ -38,7 +37,7 @@ public class XpTableScreen extends GuiScreen {
         ResourceLocation loc = classProvider.getXpTableBackground();
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         this.mc.renderEngine.bindTexture(loc);
-        GL11.glDisable(GL11.GL_LIGHTING);
+        GlStateManager.disableLighting();
         this.drawTexturedModalRect(xPos, yPos, 0, 0, panelWidth, panelHeight);
         float scaleFactor = 1.5f;
         GlStateManager.pushMatrix();

@@ -8,7 +8,6 @@ import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.util.ResourceLocation;
-import org.lwjgl.opengl.GL11;
 
 
 public class PartyInviteScreen extends GuiScreen {
@@ -33,7 +32,7 @@ public class PartyInviteScreen extends GuiScreen {
         ResourceLocation loc = new ResourceLocation(MKUltra.MODID, "textures/gui/demo_background.png");
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         this.mc.renderEngine.bindTexture(loc);
-        GL11.glDisable(GL11.GL_LIGHTING);
+        GlStateManager.disableLighting();
         this.drawTexturedModalRect(xPos, yPos, 0, 168, panelWidth, panelHeight);
 
         String inviteText = String.format("%s is inviting you", ClientProxy.partyData.getInvitingName());

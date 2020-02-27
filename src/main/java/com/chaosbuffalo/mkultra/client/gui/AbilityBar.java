@@ -12,7 +12,6 @@ import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.relauncher.Side;
-import org.lwjgl.opengl.GL11;
 
 @Mod.EventBusSubscriber(Side.CLIENT)
 public class AbilityBar extends Gui {
@@ -54,7 +53,7 @@ public class AbilityBar extends Gui {
         int height = scaledresolution.getScaledHeight();
 
         this.mc.renderEngine.bindTexture(barTexture);
-        GL11.glDisable(GL11.GL_LIGHTING);
+        GlStateManager.disableLighting();
 
         final int maxManaPerRow = 20;
         final int manaCellWidth = 4;
@@ -97,7 +96,7 @@ public class AbilityBar extends Gui {
 
     private void drawBarSlots(int slotCount) {
         this.mc.renderEngine.bindTexture(barTexture);
-        GL11.glDisable(GL11.GL_LIGHTING);
+        GlStateManager.disableLighting();
 
         int xOffset = 0;
         int yOffset = getBarStartY(slotCount);
@@ -107,7 +106,7 @@ public class AbilityBar extends Gui {
     }
 
     private void drawAbilities(IPlayerData data, int slotCount, float partialTicks) {
-        GL11.glDisable(GL11.GL_LIGHTING);
+        GlStateManager.disableLighting();
 
         final int slotAbilityOffsetX = 1;
         final int slotAbilityOffsetY = 2;

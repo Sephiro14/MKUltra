@@ -2,6 +2,7 @@ package com.chaosbuffalo.mkultra.client.gui.lib;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.client.renderer.GlStateManager;
 import org.lwjgl.opengl.GL11;
 
 import javax.annotation.Nullable;
@@ -175,8 +176,8 @@ public class MKScrollView extends MKWidget {
 
     @Override
     public void draw(Minecraft mc, int x, int y, int width, int height, int mouseX, int mouseY, float partialTicks) {
-        GL11.glPushMatrix();
-        GL11.glTranslatef(offsetX, offsetY, 0);
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(offsetX, offsetY, 0);
 
         if (isClipBoundsEnabled()) {
             GL11.glEnable(GL11.GL_SCISSOR_TEST);
@@ -207,7 +208,7 @@ public class MKScrollView extends MKWidget {
         if (isClipBoundsEnabled()) {
             GL11.glDisable(GL11.GL_SCISSOR_TEST);
         }
-        GL11.glPopMatrix();
+        GlStateManager.popMatrix();
         if (shouldDrawScrollbars()) {
             MKWidget child = getChild();
             if (child == null) {
