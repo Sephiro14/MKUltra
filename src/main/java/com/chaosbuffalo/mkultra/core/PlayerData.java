@@ -40,6 +40,8 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
 import javax.annotation.Nullable;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.*;
 
 public class PlayerData implements IPlayerData {
@@ -93,13 +95,26 @@ public class PlayerData implements IPlayerData {
         player.getAttributeMap().registerAttribute(PlayerAttributes.BUFF_DURATION);
     }
 
+    private String dirtyTrace;
     private void markDirty() {
+        if (dirtyTrace == null) {
+            try {
+                throw new Exception("Setting player dirty");
+            } catch (Exception e) {
+                StringWriter sw = new StringWriter();
+                e.printStackTrace(new PrintWriter(sw));
+                dirtyTrace = sw.toString();
+            }
+        }
         dirty = true;
     }
 
     private IMessage getUpdateMessage() {
         if (dirty) {
+            Log.info("player dirty stack trace");
+            Log.info(dirtyTrace);
             dirty = false;
+            dirtyTrace = null;
             return new PlayerDataSyncPacket(this, player.getUniqueID());
         }
         return null;
@@ -1058,11 +1073,13 @@ public class PlayerData implements IPlayerData {
         return this.player instanceof EntityPlayerMP;
     }
 
+    private boolean readyForUpdates = false;
     public void forceUpdate() {
-        markDirty();
-        sendBulkAbilityUpdate();
         sendBulkClassUpdate();
-        updateActiveAbilities();
+        markDirty();
+        readyForUpdates = true;
+//        sendBulkAbilityUpdate();
+//        updateActiveAbilities();
     }
 
     public void onJoinWorld() {
@@ -1110,10 +1127,13 @@ public class PlayerData implements IPlayerData {
     }
 
     private void syncState() {
+        if (!readyForUpdates)
+            return;
         PlayerClassInfo activeClass = getActiveClass();
         if (activeClass != null) {
             IMessage message = activeClass.getUpdateMessage();
             if (message != null) {
+                Log.info("sending class update");
                 MinecraftForge.EVENT_BUS.post(new PlayerClassEvent.Updated(player, this, activeClass.getClassId()));
                 MKUltra.packetHandler.sendTo(message, (EntityPlayerMP) player);
             }
@@ -1121,6 +1141,7 @@ public class PlayerData implements IPlayerData {
 
         IMessage updateMessage = getUpdateMessage();
         if (updateMessage != null) {
+            Log.info("sending player update");
             MKUltra.packetHandler.sendToAllTrackingAndSelf(updateMessage, (EntityPlayerMP) player);
         }
     }
@@ -1147,6 +1168,12 @@ public class PlayerData implements IPlayerData {
         }
     }
 
+    private void sendClassRemoval(PlayerClassInfo removedClass) {
+        if (isServerSide()) {
+            MKUltra.packetHandler.sendTo(new ClassUpdatePacket(removedClass, true), (EntityPlayerMP) player);
+        }
+    }
+
     @SideOnly(Side.CLIENT)
     public void clientAbilityUpdate(PlayerAbilityInfo info) {
         PlayerClassInfo classInfo = getActiveClass();
@@ -1156,11 +1183,32 @@ public class PlayerData implements IPlayerData {
     }
 
     @SideOnly(Side.CLIENT)
-    public void clientBulkKnownClassUpdate(Collection<PlayerClassInfo> info, boolean isFullUpdate) {
-        if (isFullUpdate) {
-            knownClasses.clear();
-        }
-        info.forEach(classInfo -> {
+    public void clientBulkKnownClassUpdate(Map<ResourceLocation, NBTTagCompound> info) {
+        info.forEach((id, tag) -> {
+            String syncType = tag.getString("sync");
+            if (syncType.equals("remove")) {
+                Log.info("removing known class %s", id);
+                knownClasses.remove(id);
+                return;
+            }
+            PlayerClassInfo classInfo = knownClasses.get(id);
+            if (classInfo == null) {
+                if (syncType.equals("update")) {
+                    throw new RuntimeException(String.format("Client received update packet for unknown class %s!", id));
+                }
+                Log.info("adding new class %s", id);
+                PlayerClass playerClass = MKURegistry.getClass(id);
+                if (playerClass == null) {
+                    Log.error("Failed to get class object %s for client update!", id);
+                    return;
+                }
+                classInfo = playerClass.createClassInfo();
+                classInfo.deserialize(tag);
+            } else {
+                Log.info("class update %s", id);
+                classInfo.deserializeSync(tag);
+            }
+
             knownClasses.put(classInfo.getClassId(), classInfo);
             MinecraftForge.EVENT_BUS.post(new PlayerClassEvent.Updated(player, this, classInfo.getClassId()));
         });
@@ -1368,7 +1416,7 @@ public class PlayerData implements IPlayerData {
             bc.getAbilities().forEach(a -> unlearnAbility(a.getAbilityId(), false, true));
         }
 
-        sendBulkClassUpdate();
+        sendClassRemoval(info);
         MinecraftForge.EVENT_BUS.post(new PlayerClassEvent.Removed(player, this));
     }
 

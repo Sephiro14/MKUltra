@@ -24,6 +24,8 @@ import net.minecraftforge.common.util.Constants;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
 import javax.annotation.Nullable;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.*;
 
 public class PlayerClassInfo {
@@ -39,6 +41,7 @@ public class PlayerClassInfo {
     private List<ResourceLocation> loadedUltimates;
     private Map<ResourceLocation, PlayerAbilityInfo> abilityInfoMap = new HashMap<>(GameConstants.ACTION_BAR_SIZE);
     private boolean dirty;
+    private String dirtyTrace;
 
     public PlayerClassInfo(ResourceLocation classId) {
         this.classId = classId;
@@ -57,13 +60,30 @@ public class PlayerClassInfo {
     }
 
     private void markDirty() {
+        if (dirtyTrace == null) {
+            try {
+                throw new Exception("Setting class dirty");
+            } catch (Exception e) {
+                StringWriter sw = new StringWriter();
+                e.printStackTrace(new PrintWriter(sw));
+                dirtyTrace = sw.toString();
+            }
+        }
         dirty = true;
+    }
+
+    private void markClean() {
+        dirtyTrace = null;
+        dirty = false;
     }
 
     IMessage getUpdateMessage() {
         if (dirty) {
-            dirty = false;
-            return new ClassUpdatePacket(this);
+            Log.info("class dirty stack trace");
+            Log.info(dirtyTrace);
+            IMessage message =  new ClassUpdatePacket(this, false);
+            markClean();
+            return message;
         }
         return null;
     }
@@ -498,6 +518,30 @@ public class PlayerClassInfo {
             clearSpentAbilities();
         }
         deserializeTalentInfo(tag);
+    }
+
+    public void serializeSync(NBTTagCompound tag) {
+        tag.setInteger("level", level);
+        tag.setInteger("unspentPoints", unspentPoints);
+//        writeNBTAbilityArray(tag, "abilitySpendOrder", abilitySpendOrder, GameConstants.MAX_CLASS_LEVEL);
+        writeNBTAbilityArray(tag, "hotbar", hotbar, GameConstants.ACTION_BAR_SIZE);
+        serializeAbilities(tag);
+        for (TalentTreeRecord record : talentTrees.values()) {
+            record.serializeUpdate(tag);
+        }
+
+        Log.info(tag.toString());
+    }
+
+    public void deserializeSync(NBTTagCompound tag) {
+        level = tag.getInteger("level");
+        unspentPoints = tag.getInteger("unspentPoints");
+//        abilitySpendOrder = parseNBTAbilityList(tag, "abilitySpendOrder", GameConstants.MAX_CLASS_LEVEL);
+        hotbar = parseNBTAbilityList(tag, "hotbar", GameConstants.ACTION_BAR_SIZE);
+        deserializeAbilities(tag);
+        for (TalentTreeRecord record : talentTrees.values()) {
+            record.deserializeUpdate(tag);
+        }
     }
 
     public void serializeTalentInfo(NBTTagCompound tag) {

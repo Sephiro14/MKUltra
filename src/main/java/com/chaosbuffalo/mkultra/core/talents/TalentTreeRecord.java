@@ -1,18 +1,22 @@
 package com.chaosbuffalo.mkultra.core.talents;
 
+import com.chaosbuffalo.mkultra.core.ISupportsPartialSync;
 import com.chaosbuffalo.mkultra.log.Log;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.MultimapBuilder;
 import com.google.common.util.concurrent.AtomicDouble;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagInt;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraftforge.common.util.Constants;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.*;
 import java.util.function.BiConsumer;
 
-public class TalentTreeRecord {
+public class TalentTreeRecord implements ISupportsPartialSync {
     private TalentTree tree;
     private HashMap<String, ArrayList<TalentRecord>> records;
+    private Multimap<String, Integer> dirtyTalents = MultimapBuilder.hashKeys().arrayListValues().build();
 
     public TalentTreeRecord(TalentTree tree) {
         this.tree = tree;
@@ -76,6 +80,7 @@ public class TalentTreeRecord {
         ArrayList<TalentRecord> line = records.get(lineName);
         TalentRecord record = line.get(index);
         record.addToRank(1);
+        dirtyTalents.put(lineName, index);
     }
 
     public BaseTalent getTalentDefinition(String lineName, int index) {
@@ -88,6 +93,7 @@ public class TalentTreeRecord {
         ArrayList<TalentRecord> line = records.get(lineName);
         TalentRecord record = line.get(index);
         record.addToRank(-1);
+        dirtyTalents.put(lineName, index);
     }
 
     public NBTTagCompound toTag() {
@@ -226,5 +232,59 @@ public class TalentTreeRecord {
             }
         });
         return val.get();
+    }
+
+    @Override
+    public boolean isDirty() {
+        return dirtyTalents.size() > 0;
+    }
+
+    @Override
+    public void deserializeUpdate(NBTTagCompound tag) {
+        if (tag.hasKey("talentUpdates")) {
+            NBTTagCompound updates = tag.getCompoundTag("talentUpdates");
+
+            NBTTagList treeUpdates = updates.getTagList(tree.getRegistryName().toString(), Constants.NBT.TAG_COMPOUND);
+
+            for (int i = 0; i < treeUpdates.tagCount(); i++) {
+                NBTTagCompound entry = treeUpdates.getCompoundTagAt(i);
+                String line = entry.getString("line");
+                int index = entry.getInteger("index");
+                int rank = entry.getInteger("rank");
+
+                if (!records.containsKey(line))
+                    continue;
+
+                List<TalentRecord> lineRecords = records.get(line);
+                lineRecords.get(index).setRank(rank);
+            }
+        }
+    }
+
+    @Override
+    public void serializeUpdate(NBTTagCompound tag) {
+        if (!isDirty())
+            return;
+
+        NBTTagCompound updates = tag.getCompoundTag("talentUpdates");
+
+        NBTTagList lineIndices = updates.getTagList(tree.getRegistryName().toString(), Constants.NBT.TAG_COMPOUND);
+
+        dirtyTalents.forEach((line, index) -> {
+            if (!records.containsKey(line))
+                return;
+
+            List<TalentRecord> lineRecords = records.get(line);
+
+            NBTTagCompound entry = new NBTTagCompound();
+            entry.setString("line", line);
+            entry.setInteger("index", index);
+            entry.setInteger("rank", lineRecords.get(index).getRank());
+            lineIndices.appendTag(entry);
+        });
+
+        updates.setTag(tree.getRegistryName().toString(), lineIndices);
+
+        tag.setTag("talentUpdates", updates);
     }
 }
