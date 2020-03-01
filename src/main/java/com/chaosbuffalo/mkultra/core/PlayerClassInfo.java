@@ -143,8 +143,20 @@ public class PlayerClassInfo implements ISupportsPartialSync {
         return MKConfig.gameplay.MAX_TALENT_POINTS_PER_CLASS;
     }
 
-    public Collection<PlayerAbilityInfo> getAbilityInfos() {
+    public Collection<PlayerAbilityInfo> getAbilities() {
         return abilityInfoMap.values();
+    }
+
+    public List<ResourceLocation> getActivePassives() {
+        return Collections.unmodifiableList(loadedPassives);
+    }
+
+    public List<ResourceLocation> getActiveUltimates() {
+        return Collections.unmodifiableList(loadedUltimates);
+    }
+
+    public List<ResourceLocation> getActiveAbilities() {
+        return Collections.unmodifiableList(hotbar);
     }
 
     public ResourceLocation getAbilityInSlot(int index) {
@@ -183,10 +195,10 @@ public class PlayerClassInfo implements ISupportsPartialSync {
         return true;
     }
 
-    void putInfo(ResourceLocation abilityId, PlayerAbilityInfo info) {
+    void abilityUpdate(ResourceLocation abilityId, PlayerAbilityInfo info) {
         abilityInfoMap.put(abilityId, info);
         dirtyAbilities.add(info);
-        checkHotbar();
+        checkHotBar(abilityId);
         markDirty();
     }
 
@@ -210,18 +222,18 @@ public class PlayerClassInfo implements ISupportsPartialSync {
         return getSlotForAbility(MKURegistry.INVALID_ABILITY);
     }
 
-    public boolean tryPlaceOnBar(ResourceLocation abilityId) {
+    public int tryPlaceOnBar(ResourceLocation abilityId) {
         int slot = getSlotForAbility(abilityId);
         if (slot == GameConstants.ACTION_BAR_INVALID_SLOT) {
             // Skill was just learned so let's try to put it on the bar
             slot = getFirstFreeAbilitySlot();
             if (slot != GameConstants.ACTION_BAR_INVALID_SLOT) {
                 setAbilityInSlot(slot, abilityId);
-                return true;
+                return slot;
             }
         }
 
-        return false;
+        return GameConstants.ACTION_BAR_INVALID_SLOT;
     }
 
     public boolean addPassiveToSlot(ResourceLocation abilityId, int slotIndex) {
@@ -240,9 +252,17 @@ public class PlayerClassInfo implements ISupportsPartialSync {
 
     public boolean addUltimateToSlot(ResourceLocation abilityId, int slotIndex) {
         if (canAddUltimateToSlot(abilityId, slotIndex)) {
-            loadedUltimates.set(slotIndex, abilityId);
-            tryPlaceOnBar(abilityId);
-            markDirty();
+            ResourceLocation currentAbility = getUltimateForSlot(slotIndex);
+            if (abilityId.equals(MKURegistry.INVALID_ABILITY) && !currentAbility.equals(MKURegistry.INVALID_ABILITY)) {
+                clearUltimateSlot(slotIndex);
+            } else {
+                if (!currentAbility.equals(MKURegistry.INVALID_ABILITY)) {
+                    clearUltimateSlot(slotIndex);
+                }
+                loadedUltimates.set(slotIndex, abilityId);
+                tryPlaceOnBar(abilityId);
+                markDirty();
+            }
             return true;
         }
         return false;
@@ -266,11 +286,15 @@ public class PlayerClassInfo implements ISupportsPartialSync {
     public void clearUltimateSlot(int slotIndex) {
         ResourceLocation currentAbility = getUltimateForSlot(slotIndex);
         loadedUltimates.set(slotIndex, MKURegistry.INVALID_ABILITY);
-        int barslot = getSlotForAbility(currentAbility);
-        if (barslot != GameConstants.ACTION_BAR_INVALID_SLOT) {
-            setAbilityInSlot(barslot, MKURegistry.INVALID_ABILITY);
-        }
+        removeFromHotBar(currentAbility);
         markDirty();
+    }
+
+    void removeFromHotBar(ResourceLocation abilityId) {
+        int slot = getSlotForAbility(abilityId);
+        if (slot != GameConstants.ACTION_BAR_INVALID_SLOT) {
+            setAbilityInSlot(slot, MKURegistry.INVALID_ABILITY);
+        }
     }
 
     public void clearPassiveSlot(int slotIndex) {
@@ -388,16 +412,14 @@ public class PlayerClassInfo implements ISupportsPartialSync {
         }
     }
 
-    private void checkHotbar() {
-        for (int i = 0; i < hotbar.size(); i++) {
-            ResourceLocation abilityId = getAbilityInSlot(i);
-            if (abilityId.equals(MKURegistry.INVALID_ABILITY))
-                continue;
-            PlayerAbilityInfo info = getAbilityInfo(abilityId);
-            if (info == null)
-                continue;
-            if (!info.isCurrentlyKnown())
-                setAbilityInSlot(i, MKURegistry.INVALID_ABILITY);
+    private void checkHotBar(ResourceLocation abilityId) {
+        if (abilityId.equals(MKURegistry.INVALID_ABILITY))
+            return;
+        PlayerAbilityInfo info = getAbilityInfo(abilityId);
+        if (info == null)
+            return;
+        if (!info.isCurrentlyKnown()) {
+            removeFromHotBar(info.getId());
         }
     }
 
@@ -432,23 +454,11 @@ public class PlayerClassInfo implements ISupportsPartialSync {
     }
 
     private void clearSpentAbilities() {
-        unspentPoints = level;
+        setUnspentPoints(getLevel());
         clearAbilitySpendOrder();
         clearActiveAbilities();
         abilityInfoMap.clear();
         markDirty();
-    }
-
-    public List<ResourceLocation> getActivePassives() {
-        return Collections.unmodifiableList(loadedPassives);
-    }
-
-    public List<ResourceLocation> getActiveUltimates() {
-        return Collections.unmodifiableList(loadedUltimates);
-    }
-
-    public List<ResourceLocation> getActiveAbilities() {
-        return Collections.unmodifiableList(hotbar);
     }
 
     public void addTalentPoints(int pointCount) {
@@ -602,6 +612,7 @@ public class PlayerClassInfo implements ISupportsPartialSync {
                     }
 
                     current = ability.createAbilityInfo();
+                    abilityInfoMap.put(abilityId, current);
                 }
 
                 if (!current.deserialize(abilities.getCompoundTag(id))) {

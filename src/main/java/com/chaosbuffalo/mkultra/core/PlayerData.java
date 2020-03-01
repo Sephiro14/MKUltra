@@ -276,17 +276,7 @@ public class PlayerData implements IPlayerData {
             return false;
 
         if (isServerSide()) {
-            ResourceLocation currentAbility = activeClass.getUltimateForSlot(slotIndex);
-            if (loc.equals(MKURegistry.INVALID_ABILITY) && !currentAbility.equals(MKURegistry.INVALID_ABILITY)) {
-                activeClass.clearUltimateSlot(slotIndex);
-                return true;
-            } else {
-                if (!currentAbility.equals(MKURegistry.INVALID_ABILITY)) {
-                    activeClass.clearUltimateSlot(slotIndex);
-                }
-                boolean didWork = activeClass.addUltimateToSlot(loc, slotIndex);
-                return didWork;
-            }
+            return activeClass.addUltimateToSlot(loc, slotIndex);
         } else {
             if (activeClass.canAddUltimateToSlot(loc, slotIndex)) {
                 MKUltra.packetHandler.sendToServer(new ActivateUltimatePacket(loc, slotIndex));
@@ -596,10 +586,6 @@ public class PlayerData implements IPlayerData {
         return classInfo != null ? classInfo.getAbilityInSlot(index) : MKURegistry.INVALID_ABILITY;
     }
 
-    private int getFirstFreeAbilitySlot(PlayerClassInfo classInfo) {
-        return classInfo.getSlotForAbility(MKURegistry.INVALID_ABILITY);
-    }
-
     @Override
     public int getCurrentAbilityCooldown(ResourceLocation abilityId) {
         PlayerAbilityInfo abilityInfo = getAbilityInfo(abilityId);
@@ -670,12 +656,13 @@ public class PlayerData implements IPlayerData {
             setCooldown(info.getId(), Math.min(current, newMaxCooldown));
         }
 
-        classInfo.putInfo(abilityId, info);
+        classInfo.abilityUpdate(abilityId, info);
         updateToggleAbility(info);
 
         if (placeOnBar) {
-            if (classInfo.tryPlaceOnBar(abilityId)) {
-                updateActiveAbilities();
+            int slot = classInfo.tryPlaceOnBar(abilityId);
+            if (slot != GameConstants.ACTION_BAR_INVALID_SLOT) {
+                updateActiveAbilitySlot(classInfo, slot);
             }
         }
 
@@ -708,7 +695,7 @@ public class PlayerData implements IPlayerData {
             classInfo.setUnspentPoints(curUnspent + ranks);
         }
 
-        classInfo.putInfo(abilityId, info);
+        classInfo.abilityUpdate(abilityId, info);
         updateToggleAbility(info);
 
         int slot = classInfo.getSlotForAbility(abilityId);
@@ -1141,7 +1128,7 @@ public class PlayerData implements IPlayerData {
         if (isServerSide()) {
             PlayerClassInfo classInfo = getActiveClass();
             if (classInfo != null) {
-                MKUltra.packetHandler.sendTo(new AbilityUpdatePacket(classInfo.getAbilityInfos()),
+                MKUltra.packetHandler.sendTo(new AbilityUpdatePacket(classInfo.getAbilities()),
                         (EntityPlayerMP) player);
             }
         }
@@ -1169,7 +1156,7 @@ public class PlayerData implements IPlayerData {
     public void clientAbilityUpdate(PlayerAbilityInfo info) {
         PlayerClassInfo classInfo = getActiveClass();
         if (classInfo != null) {
-            classInfo.putInfo(info.getId(), info);
+            classInfo.abilityUpdate(info.getId(), info);
         }
     }
 
