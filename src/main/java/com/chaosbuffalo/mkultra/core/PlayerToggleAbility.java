@@ -44,7 +44,7 @@ public abstract class PlayerToggleAbility extends PlayerAbility {
 
     @Override
     public AbilityType getType() {
-        return AbilityType.Toggle;
+        return AbilityType.Active;
     }
 
     public void applyEffect(EntityPlayer entity, IPlayerData pData, World theWorld) {
