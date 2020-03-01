@@ -112,8 +112,8 @@ public class PlayerData implements IPlayerData {
 
     private IMessage getUpdateMessage() {
         if (dirty) {
-            Log.info("player dirty stack trace");
-            Log.info(dirtyTrace);
+//            Log.info("player dirty stack trace");
+//            Log.info(dirtyTrace);
             dirty = false;
             dirtyTrace = null;
             return new PlayerDataSyncPacket(this, player.getUniqueID());
@@ -627,42 +627,19 @@ public class PlayerData implements IPlayerData {
         if (classInfo == null)
             return false;
 
-        ResourceLocation abilityId = ability.getAbilityId();
-
-        PlayerAbilityInfo info = classInfo.getAbilityInfo(abilityId);
-        if (info == null) {
-            info = ability.createAbilityInfo();
-        }
-
-        if (consumePoint && getUnspentPoints() == 0)
-            return false;
-
-        if (!info.upgrade())
-            return false;
-
-        if (consumePoint) {
-            int curUnspent = classInfo.getUnspentPoints();
-            if (curUnspent > 0) {
-                classInfo.setUnspentPoints(curUnspent - 1);
-            } else {
-                return false;
+        if (classInfo.learnAbility(ability, consumePoint, placeOnBar)) {
+            ResourceLocation abilityId = ability.getAbilityId();
+            if (abilityTracker.hasCooldown(abilityId)) {
+                int newMaxCooldown = getAbilityCooldown(ability);
+                int current = abilityTracker.getCooldownTicks(abilityId);
+                setCooldown(abilityId, Math.min(current, newMaxCooldown));
             }
-            classInfo.setAbilitySpendOrder(abilityId, getAbilityLearnIndex());
-        }
 
-        if (abilityTracker.hasCooldown(abilityId)) {
-            int newMaxCooldown = getAbilityCooldown(ability);
-            int current = abilityTracker.getCooldownTicks(abilityId);
-            setCooldown(info.getId(), Math.min(current, newMaxCooldown));
-        }
-
-        classInfo.abilityUpdate(abilityId, info);
-        updateToggleAbility(info);
-
-        if (placeOnBar) {
-            int slot = classInfo.tryPlaceOnBar(abilityId);
-            if (slot != GameConstants.ACTION_BAR_INVALID_SLOT) {
-                updateActiveAbilitySlot(classInfo, slot);
+            if (ability instanceof PlayerToggleAbility) {
+                PlayerAbilityInfo info = classInfo.getAbilityInfo(abilityId);
+                if (info != null) {
+                    updateToggleAbility(info);
+                }
             }
         }
 
@@ -969,6 +946,16 @@ public class PlayerData implements IPlayerData {
         }
     }
 
+    private void updateActiveAbilitySlot(ResourceLocation abilityId) {
+        // This is mostly to get the abilityTracker to send an AbilityCooldown packet to the client
+        // so the AbilityBar can shade based on cooldowns
+        // FIXME: make this less awkward
+        if (abilityTracker.hasCooldown(abilityId)) {
+            int cd = abilityTracker.getCooldownTicks(abilityId);
+            setCooldown(abilityId, cd);
+        }
+    }
+
     private void updateActiveAbilities() {
         PlayerClassInfo classInfo = getActiveClass();
         if (classInfo == null)
@@ -1055,7 +1042,10 @@ public class PlayerData implements IPlayerData {
 
 
     public void forceUpdate() {
+        // Inform the client of all the classes they know
         sendBulkClassUpdate();
+        // Sync the cooldowns for the current class
+        updateActiveAbilities();
         markDirty();
         readyForUpdates = true;
     }
@@ -1319,13 +1309,12 @@ public class PlayerData implements IPlayerData {
             return;
 
         int oldLevel = classInfo.getLevel();
-
         if (oldLevel > 1) {
             int curUnspent = classInfo.getUnspentPoints();
             if (curUnspent > 0) {
                 classInfo.setUnspentPoints(curUnspent - 1);
             } else {
-                ResourceLocation lastAbility = classInfo.getAbilitySpendOrder(getAbilityLearnIndex());
+                ResourceLocation lastAbility = classInfo.getLastLeveledAbility();
                 if (!lastAbility.equals(MKURegistry.INVALID_ABILITY)) {
                     unlearnAbility(lastAbility, false, false);
                 }
@@ -1334,20 +1323,23 @@ public class PlayerData implements IPlayerData {
             // Check to see if de-leveling will make us lower than the required level for some spells.
             // If so, unlearn the spell and refund the point.
             int newLevel = oldLevel - 1;
-            classInfo.getActiveAbilities().stream()
-                    .map(MKURegistry::getAbility)
-                    .filter(Objects::nonNull)
-                    .filter(ability -> ability.getType() == PlayerAbility.AbilityType.Active)
-                    .filter(ability -> {
-                        int currentRank = getAbilityRank(ability.getAbilityId());
-                        // Subtract 1 because getRequiredLevel is a little weird. It actually tells you the required
-                        // level to go up a rank, not the required level for the current rank
-                        int newRank = currentRank - 1;
-                        int reqLevel = ability.getRequiredLevel(newRank);
-                        reqLevel = Math.max(1, reqLevel);
-                        return reqLevel > newLevel;
-                    })
-                    .forEach(a -> unlearnAbility(a.getAbilityId(), true, false));
+            for (PlayerAbilityInfo info : classInfo.getAbilities()) {
+                PlayerAbility ability = info.getAbility();
+
+                int currentRank = getAbilityRank(ability.getAbilityId());
+                Log.info("death check for %s %d", ability.getAbilityId(), currentRank);
+                if (ability.getType() != PlayerAbility.AbilityType.Active)
+                    continue;
+                // Subtract 1 because getRequiredLevel is a little weird. It actually tells you the required
+                // level to go up a rank, not the required level for the current rank
+                int newRank = currentRank - 1;
+                int reqLevel = ability.getRequiredLevel(newRank);
+                reqLevel = Math.max(1, reqLevel);
+                if (reqLevel > newLevel) {
+                    unlearnAbility(ability.getAbilityId(), true, false);
+                }
+
+            }
 
             setLevel(classInfo, newLevel);
             validateAbilityPoints();
@@ -1486,14 +1478,13 @@ public class PlayerData implements IPlayerData {
 
     @Override
     public boolean setCooldown(ResourceLocation abilityId, int cooldownTicks) {
-        PlayerAbilityInfo info = getAbilityInfo(abilityId);
-        if (info == null)
+        if (abilityId.equals(MKURegistry.INVALID_ABILITY))
             return false;
 
         if (cooldownTicks > 0) {
-            abilityTracker.setCooldown(info.getId(), cooldownTicks);
+            abilityTracker.setCooldown(abilityId, cooldownTicks);
         } else {
-            abilityTracker.removeCooldown(info.getId());
+            abilityTracker.removeCooldown(abilityId);
         }
         return true;
     }

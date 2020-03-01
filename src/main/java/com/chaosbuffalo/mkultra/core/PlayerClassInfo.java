@@ -81,8 +81,8 @@ public class PlayerClassInfo implements ISupportsPartialSync {
     IMessage getUpdateMessage() {
         if (isDirty()) {
             if (dirtyTrace != null) {
-                Log.info("class dirty stack trace");
-                Log.info(dirtyTrace);
+//                Log.info("class dirty stack trace");
+//                Log.info(dirtyTrace);
             }
             IMessage message =  new ClassUpdatePacket(this, ClassUpdatePacket.UpdateType.UPDATE);
             markClean();
@@ -153,10 +153,6 @@ public class PlayerClassInfo implements ISupportsPartialSync {
 
     public List<ResourceLocation> getActiveUltimates() {
         return Collections.unmodifiableList(loadedUltimates);
-    }
-
-    public List<ResourceLocation> getActiveAbilities() {
-        return Collections.unmodifiableList(hotbar);
     }
 
     public ResourceLocation getAbilityInSlot(int index) {
@@ -557,6 +553,46 @@ public class PlayerClassInfo implements ISupportsPartialSync {
 
     public TalentTreeRecord getTalentTree(ResourceLocation loc) {
         return talentTrees.get(loc);
+    }
+
+    public boolean learnAbility(PlayerAbility ability, boolean consumePoint, boolean placeOnBar) {
+        ResourceLocation abilityId = ability.getAbilityId();
+
+        PlayerAbilityInfo info = getAbilityInfo(abilityId);
+        if (info == null) {
+            info = ability.createAbilityInfo();
+        }
+
+        if (consumePoint && getUnspentPoints() == 0)
+            return false;
+
+        if (!info.upgrade())
+            return false;
+
+        if (consumePoint) {
+            int curUnspent = getUnspentPoints();
+            if (curUnspent > 0) {
+                setUnspentPoints(curUnspent - 1);
+            } else {
+                return false;
+            }
+            setAbilitySpendOrder(abilityId, getAbilityLearnIndex());
+        }
+
+        if (placeOnBar) {
+            tryPlaceOnBar(abilityId);
+        }
+
+        abilityUpdate(abilityId, info);
+        return true;
+    }
+
+    private int getAbilityLearnIndex() {
+        return getLevel() - getUnspentPoints();
+    }
+
+    public ResourceLocation getLastLeveledAbility() {
+        return getAbilitySpendOrder(getAbilityLearnIndex());
     }
 
     @Override
