@@ -63,6 +63,7 @@ public class PlayerData implements IPlayerData {
     private float mana;
     private PlayerCastingState currentCast;
     private ResourceLocation activeClassId;
+    private boolean readyForUpdates = false;
 
 
     public PlayerData(EntityPlayer player) {
@@ -1072,13 +1073,11 @@ public class PlayerData implements IPlayerData {
         return this.player instanceof EntityPlayerMP;
     }
 
-    private boolean readyForUpdates = false;
+
     public void forceUpdate() {
         sendBulkClassUpdate();
         markDirty();
         readyForUpdates = true;
-//        sendBulkAbilityUpdate();
-//        updateActiveAbilities();
     }
 
     public void onJoinWorld() {
@@ -1205,7 +1204,7 @@ public class PlayerData implements IPlayerData {
                 classInfo.deserialize(tag);
             } else {
                 Log.info("class update %s", id);
-                classInfo.deserializeSync(tag);
+                classInfo.deserializeUpdate(tag);
             }
 
             knownClasses.put(classInfo.getClassId(), classInfo);

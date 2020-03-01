@@ -52,7 +52,7 @@ public class ClassUpdatePacket implements IMessage {
     void updateClass(PlayerClassInfo classInfo) {
         NBTTagCompound tag = new NBTTagCompound();
         tag.setString("sync", "update");
-        classInfo.serializeSync(tag);
+        classInfo.serializeUpdate(tag);
         classes.put(classInfo.getClassId(), tag);
     }
 
