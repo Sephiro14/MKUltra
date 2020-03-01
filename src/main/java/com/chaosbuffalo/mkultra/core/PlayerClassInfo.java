@@ -41,6 +41,7 @@ public class PlayerClassInfo implements ISupportsPartialSync {
     private List<ResourceLocation> loadedUltimates;
     private Map<ResourceLocation, PlayerAbilityInfo> abilityInfoMap = new HashMap<>(GameConstants.ACTION_BAR_SIZE);
     private List<PlayerAbilityInfo> dirtyAbilities = new ArrayList<>();
+    private List<NBTTagCompound> dirtyActiveAbilities = new ArrayList<>();
     private boolean dirty;
     private String dirtyTrace;
 
@@ -84,7 +85,7 @@ public class PlayerClassInfo implements ISupportsPartialSync {
 //                Log.info("class dirty stack trace");
 //                Log.info(dirtyTrace);
             }
-            IMessage message =  new ClassUpdatePacket(this, ClassUpdatePacket.UpdateType.UPDATE);
+            IMessage message = new ClassUpdatePacket(this, ClassUpdatePacket.UpdateType.UPDATE);
             markClean();
             return message;
         }
@@ -172,7 +173,7 @@ public class PlayerClassInfo implements ISupportsPartialSync {
     void setAbilityInSlot(int index, ResourceLocation abilityId) {
         if (index < hotbar.size()) {
             hotbar.set(index, abilityId);
-            markDirty();
+            markAbilityListDirty("hotbar", index, abilityId);
         }
     }
 
@@ -236,11 +237,10 @@ public class PlayerClassInfo implements ISupportsPartialSync {
         if (canAddPassiveToSlot(abilityId, slotIndex)) {
             for (int i = 0; i < loadedPassives.size(); i++) {
                 if (!abilityId.equals(MKURegistry.INVALID_ABILITY) && i != slotIndex && abilityId.equals(loadedPassives.get(i))) {
-                    loadedPassives.set(i, loadedPassives.get(slotIndex));
+                    setPassiveSlot(i, loadedPassives.get(slotIndex));
                 }
             }
-            loadedPassives.set(slotIndex, abilityId);
-            markDirty();
+            setPassiveSlot(slotIndex, abilityId);
             return true;
         }
         return false;
@@ -255,9 +255,8 @@ public class PlayerClassInfo implements ISupportsPartialSync {
                 if (!currentAbility.equals(MKURegistry.INVALID_ABILITY)) {
                     clearUltimateSlot(slotIndex);
                 }
-                loadedUltimates.set(slotIndex, abilityId);
+                setUltimateSlot(slotIndex, abilityId);
                 tryPlaceOnBar(abilityId);
-                markDirty();
             }
             return true;
         }
@@ -279,11 +278,22 @@ public class PlayerClassInfo implements ISupportsPartialSync {
         return index;
     }
 
+    private void setUltimateSlot(int slotIndex, ResourceLocation abilityId) {
+        loadedUltimates.set(slotIndex, abilityId);
+        markAbilityListDirty("ultimates", slotIndex, abilityId);
+    }
+
+    private void setPassiveSlot(int slotIndex, ResourceLocation abilityId) {
+        loadedPassives.set(slotIndex, abilityId);
+        markAbilityListDirty("passives", slotIndex, abilityId);
+    }
+
     public void clearUltimateSlot(int slotIndex) {
         ResourceLocation currentAbility = getUltimateForSlot(slotIndex);
-        loadedUltimates.set(slotIndex, MKURegistry.INVALID_ABILITY);
-        removeFromHotBar(currentAbility);
-        markDirty();
+        setUltimateSlot(slotIndex, MKURegistry.INVALID_ABILITY);
+        if (!currentAbility.equals(MKURegistry.INVALID_ABILITY)) {
+            removeFromHotBar(currentAbility);
+        }
     }
 
     void removeFromHotBar(ResourceLocation abilityId) {
@@ -294,8 +304,7 @@ public class PlayerClassInfo implements ISupportsPartialSync {
     }
 
     public void clearPassiveSlot(int slotIndex) {
-        loadedPassives.set(slotIndex, MKURegistry.INVALID_ABILITY);
-        markDirty();
+        setPassiveSlot(slotIndex, MKURegistry.INVALID_ABILITY);
     }
 
     public ResourceLocation getPassiveForSlot(int slotIndex) {
@@ -623,16 +632,63 @@ public class PlayerClassInfo implements ISupportsPartialSync {
 
     @Override
     public boolean isDirty() {
-        return dirtyAbilities.size() > 0 || dirty || talentTrees.values().stream().anyMatch(TalentTreeRecord::isDirty);
+        return dirtyAbilities.size() > 0 ||
+                dirtyActiveAbilities.size() > 0 ||
+                dirty ||
+                talentTrees.values().stream().anyMatch(TalentTreeRecord::isDirty);
+    }
+
+    private void markAbilityListDirty(String type, int index, ResourceLocation value) {
+        NBTTagCompound tag = new NBTTagCompound();
+        tag.setString("type", type);
+        tag.setInteger("index", index);
+        tag.setString("value", value.toString());
+        dirtyActiveAbilities.add(tag);
+        markDirty();
+    }
+
+    void serializeAbilityLists(NBTTagCompound tag) {
+        if (dirtyActiveAbilities.size() > 0) {
+            NBTTagList list = tag.getTagList("lists", Constants.NBT.TAG_COMPOUND);
+            dirtyActiveAbilities.forEach(list::appendTag);
+            tag.setTag("lists", list);
+            dirtyActiveAbilities.clear();
+        }
+    }
+
+    void deserializeAbilityLists(NBTTagCompound tag) {
+        NBTTagList list = tag.getTagList("lists", Constants.NBT.TAG_COMPOUND);
+
+        for (int i = 0; i < list.tagCount(); i++) {
+            NBTTagCompound entry = list.getCompoundTagAt(i);
+            int index = entry.getInteger("index");
+            ResourceLocation value = new ResourceLocation(entry.getString("value"));
+            String listName = entry.getString("type");
+            List<ResourceLocation> abilityList = null;
+            switch (listName) {
+                case "hotbar":
+                    abilityList = hotbar;
+                    break;
+                case "passives":
+                    abilityList = loadedPassives;
+                    break;
+                case "ultimates":
+                    abilityList = loadedUltimates;
+                    break;
+            }
+            if (abilityList != null) {
+                abilityList.set(index, value);
+            }
+        }
     }
 
     @Override
     public void serializeUpdate(NBTTagCompound tag) {
         tag.setInteger("level", level);
         tag.setInteger("unspentPoints", unspentPoints);
-        writeNBTAbilityArray(tag, "hotbar", hotbar, GameConstants.ACTION_BAR_SIZE);
-
-        writeActiveTalentInfo(tag);
+        tag.setInteger("unspentTalentPoints", unspentTalentPoints);
+        tag.setInteger("totalTalentPoints", totalTalentPoints);
+        serializeAbilityLists(tag);
 
         if (dirtyAbilities.size() > 0) {
             NBTTagCompound abilities = new NBTTagCompound();
@@ -657,9 +713,9 @@ public class PlayerClassInfo implements ISupportsPartialSync {
     public void deserializeUpdate(NBTTagCompound tag) {
         level = tag.getInteger("level");
         unspentPoints = tag.getInteger("unspentPoints");
-        hotbar = parseNBTAbilityList(tag, "hotbar", GameConstants.ACTION_BAR_SIZE);
-
-        readActiveTalentInfo(tag);
+        unspentTalentPoints = tag.getInteger("unspentTalentPoints");
+        totalTalentPoints = tag.getInteger("totalTalentPoints");
+        deserializeAbilityLists(tag);
 
         if (tag.hasKey("abilityUpdates")) {
             NBTTagCompound abilities = tag.getCompoundTag("abilityUpdates");
