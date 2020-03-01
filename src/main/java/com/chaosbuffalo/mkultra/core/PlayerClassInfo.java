@@ -30,10 +30,10 @@ import java.util.*;
 
 public class PlayerClassInfo implements ISupportsPartialSync {
     private ResourceLocation classId;
-    private int level;
-    private int unspentPoints;
-    private int totalTalentPoints;
-    private int unspentTalentPoints;
+    private DirtyInt level = new DirtyInt("level", 1);
+    private DirtyInt unspentAbilityPoints = new DirtyInt("unspentPoints", 1);
+    private DirtyInt totalTalentPoints = new DirtyInt("totalTalentPoints", 0);
+    private DirtyInt unspentTalentPoints = new DirtyInt("unspentTalentPoints", 0);
     private HashMap<ResourceLocation, TalentTreeRecord> talentTrees;
     private List<ResourceLocation> hotbar;
     private List<ResourceLocation> abilitySpendOrder;
@@ -47,10 +47,6 @@ public class PlayerClassInfo implements ISupportsPartialSync {
 
     public PlayerClassInfo(ResourceLocation classId) {
         this.classId = classId;
-        this.level = 1;
-        this.unspentPoints = 1;
-        this.totalTalentPoints = 0;
-        this.unspentTalentPoints = 0;
         loadedPassives = NonNullList.withSize(GameConstants.MAX_PASSIVES, MKURegistry.INVALID_ABILITY);
         loadedUltimates = NonNullList.withSize(GameConstants.MAX_ULTIMATES, MKURegistry.INVALID_ABILITY);
         hotbar = NonNullList.withSize(GameConstants.ACTION_BAR_SIZE, MKURegistry.INVALID_ABILITY);
@@ -97,41 +93,43 @@ public class PlayerClassInfo implements ISupportsPartialSync {
     }
 
     public int getLevel() {
-        return level;
+        return level.get();
     }
 
     void setLevel(int level) {
-        this.level = level;
+        this.level.set(level);
         markDirty();
     }
 
     public int getUnspentPoints() {
-        return unspentPoints;
+        return unspentAbilityPoints.get();
+//        return unspentPoints;
     }
 
     void setUnspentPoints(int unspentPoints) {
         // You shouldn't have more unspent points than your levels
         if (unspentPoints > getLevel())
             return;
-        this.unspentPoints = unspentPoints;
+        unspentAbilityPoints.set(unspentPoints);
+//        this.unspentPoints = unspentPoints;
         markDirty();
     }
 
     public int getTotalTalentPoints() {
-        return totalTalentPoints;
+        return totalTalentPoints.get();
     }
 
     private void setTotalTalentPoints(int points) {
-        totalTalentPoints = points;
+        totalTalentPoints.set(points);
         markDirty();
     }
 
     public int getUnspentTalentPoints() {
-        return unspentTalentPoints;
+        return unspentTalentPoints.get();
     }
 
     private void setUnspentTalentPoints(int points) {
-        unspentTalentPoints = points;
+        unspentTalentPoints.set(points);
         markDirty();
     }
 
@@ -467,8 +465,8 @@ public class PlayerClassInfo implements ISupportsPartialSync {
     }
 
     public void addTalentPoints(int pointCount) {
-        totalTalentPoints += pointCount;
-        unspentTalentPoints += pointCount;
+        totalTalentPoints.add(pointCount);
+        unspentTalentPoints.add(pointCount);
         markDirty();
     }
 
@@ -490,7 +488,7 @@ public class PlayerClassInfo implements ISupportsPartialSync {
             BaseTalent talentDef = talentTree.getTalentDefinition(line, index);
             if (talentDef.onAdd(player, this)) {
                 talentTree.incrementPoint(line, index);
-                unspentTalentPoints -= 1;
+                unspentTalentPoints.add(-1);
                 markDirty();
                 return true;
             }
@@ -512,7 +510,7 @@ public class PlayerClassInfo implements ISupportsPartialSync {
             BaseTalent talentDef = talentTree.getTalentDefinition(line, index);
             if (talentDef.onRemove(player, this)) {
                 talentTree.decrementPoint(line, index);
-                unspentTalentPoints += 1;
+                unspentTalentPoints.add(1);
                 markDirty();
                 return true;
             }
@@ -684,10 +682,10 @@ public class PlayerClassInfo implements ISupportsPartialSync {
 
     @Override
     public void serializeUpdate(NBTTagCompound tag) {
-        tag.setInteger("level", level);
-        tag.setInteger("unspentPoints", unspentPoints);
-        tag.setInteger("unspentTalentPoints", unspentTalentPoints);
-        tag.setInteger("totalTalentPoints", totalTalentPoints);
+        level.serializeUpdate(tag);
+        unspentAbilityPoints.serializeUpdate(tag);
+        unspentTalentPoints.serializeUpdate(tag);
+        totalTalentPoints.serializeUpdate(tag);
         serializeAbilityLists(tag);
 
         if (dirtyAbilities.size() > 0) {
@@ -711,10 +709,10 @@ public class PlayerClassInfo implements ISupportsPartialSync {
 
     @Override
     public void deserializeUpdate(NBTTagCompound tag) {
-        level = tag.getInteger("level");
-        unspentPoints = tag.getInteger("unspentPoints");
-        unspentTalentPoints = tag.getInteger("unspentTalentPoints");
-        totalTalentPoints = tag.getInteger("totalTalentPoints");
+        level.deserializeUpdate(tag);
+        unspentAbilityPoints.deserializeUpdate(tag);
+        unspentTalentPoints.deserializeUpdate(tag);
+        totalTalentPoints.deserializeUpdate(tag);
         deserializeAbilityLists(tag);
 
         if (tag.hasKey("abilityUpdates")) {
@@ -746,7 +744,7 @@ public class PlayerClassInfo implements ISupportsPartialSync {
 
     public void serialize(NBTTagCompound tag) {
         tag.setString("id", classId.toString());
-        tag.setInteger("level", level);
+        tag.setInteger("level", level.get());
         PlayerClass classObj = MKURegistry.getClass(classId);
         if (classObj != null) {
             tag.setString("classAbilityHash", classObj.hashAbilities());
@@ -754,7 +752,7 @@ public class PlayerClassInfo implements ISupportsPartialSync {
             tag.setString("classAbilityHash", "invalid_hash");
         }
 
-        tag.setInteger("unspentPoints", unspentPoints);
+        tag.setInteger("unspentPoints", getUnspentPoints());
         serializeAbilities(tag);
         writeNBTAbilityArray(tag, "abilitySpendOrder", abilitySpendOrder, GameConstants.MAX_CLASS_LEVEL);
         writeNBTAbilityArray(tag, "hotbar", hotbar, GameConstants.ACTION_BAR_SIZE);
@@ -763,14 +761,14 @@ public class PlayerClassInfo implements ISupportsPartialSync {
 
     public void deserialize(NBTTagCompound tag) {
         classId = new ResourceLocation(tag.getString("id"));
-        level = tag.getInteger("level");
+        level.set(tag.getInteger("level"));
         deserializeAbilities(tag);
         PlayerClass classObj = MKURegistry.getClass(classId);
         if (classObj != null) {
             if (tag.hasKey("classAbilityHash")) {
                 String abilityHash = tag.getString("classAbilityHash");
                 if (abilityHash.equals(classObj.hashAbilities())) {
-                    unspentPoints = tag.getInteger("unspentPoints");
+                    unspentAbilityPoints.set(tag.getInteger("unspentPoints"));
                     abilitySpendOrder = parseNBTAbilityList(tag, "abilitySpendOrder", GameConstants.MAX_CLASS_LEVEL);
                     hotbar = parseNBTAbilityList(tag, "hotbar", GameConstants.ACTION_BAR_SIZE);
                 } else {
@@ -786,15 +784,15 @@ public class PlayerClassInfo implements ISupportsPartialSync {
     }
 
     private void writeActiveTalentInfo(NBTTagCompound tag) {
-        tag.setInteger("unspentTalentPoints", unspentTalentPoints);
-        tag.setInteger("totalTalentPoints", totalTalentPoints);
+        tag.setInteger("unspentTalentPoints", getUnspentTalentPoints());
+        tag.setInteger("totalTalentPoints", getTotalTalentPoints());
         writeNBTAbilityArray(tag, "loadedPassives", loadedPassives, GameConstants.MAX_PASSIVES);
         writeNBTAbilityArray(tag, "loadedUltimates", loadedUltimates, GameConstants.MAX_ULTIMATES);
     }
 
     private void readActiveTalentInfo(NBTTagCompound tag) {
-        unspentTalentPoints = tag.getInteger("unspentTalentPoints");
-        totalTalentPoints = tag.getInteger("totalTalentPoints");
+        unspentTalentPoints.set(tag.getInteger("unspentTalentPoints"));
+        totalTalentPoints.set(tag.getInteger("totalTalentPoints"));
         if (tag.hasKey("loadedPassives")) {
             loadedPassives = parseNBTAbilityList(tag, "loadedPassives", GameConstants.MAX_PASSIVES);
         }
@@ -894,6 +892,50 @@ public class PlayerClassInfo implements ISupportsPartialSync {
         }
         if (doReset) {
             resetTalents();
+        }
+    }
+
+    static class DirtyInt implements ISupportsPartialSync {
+        String name;
+        private int value;
+        private boolean dirty;
+
+        public DirtyInt(String name, int value) {
+            this.name = name;
+            set(value);
+        }
+
+        public void set(int value) {
+            this.value = value;
+            this.dirty = true;
+        }
+
+        public void add(int value) {
+            set(get() + value);
+        }
+
+        public int get() {
+            return value;
+        }
+
+        @Override
+        public boolean isDirty() {
+            return dirty;
+        }
+
+        @Override
+        public void deserializeUpdate(NBTTagCompound tag) {
+            if (tag.hasKey(name)) {
+                this.value = tag.getInteger(name);
+            }
+        }
+
+        @Override
+        public void serializeUpdate(NBTTagCompound tag) {
+            if (dirty) {
+                tag.setInteger(name, value);
+                dirty = false;
+            }
         }
     }
 }
