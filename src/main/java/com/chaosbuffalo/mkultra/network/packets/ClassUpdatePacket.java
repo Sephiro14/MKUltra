@@ -14,6 +14,12 @@ import java.util.*;
 
 public class ClassUpdatePacket implements IMessage {
 
+    public enum UpdateType {
+        ADD,
+        UPDATE,
+        REMOVE
+    }
+
     private Map<ResourceLocation, NBTTagCompound> classes;
 
     public ClassUpdatePacket() {
@@ -25,12 +31,14 @@ public class ClassUpdatePacket implements IMessage {
         knownClasses.forEach(this::newClass);
     }
 
-    public ClassUpdatePacket(PlayerClassInfo info, boolean remove) {
+    public ClassUpdatePacket(PlayerClassInfo info, UpdateType action) {
         this();
-        if (remove) {
-            removeClass(info.getClassId());
-        } else {
+        if (action == UpdateType.ADD) {
+            newClass(info);
+        } else if (action == UpdateType.UPDATE) {
             updateClass(info);
+        } else if (action == UpdateType.REMOVE) {
+            removeClass(info.getClassId());
         }
     }
 

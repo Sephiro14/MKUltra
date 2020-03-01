@@ -82,7 +82,7 @@ public class PlayerClassInfo implements ISupportsPartialSync {
         if (dirty) {
             Log.info("class dirty stack trace");
             Log.info(dirtyTrace);
-            IMessage message =  new ClassUpdatePacket(this, false);
+            IMessage message =  new ClassUpdatePacket(this, ClassUpdatePacket.UpdateType.UPDATE);
             markClean();
             return message;
         }

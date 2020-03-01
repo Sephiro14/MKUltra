@@ -1163,7 +1163,13 @@ public class PlayerData implements IPlayerData {
 
     private void sendClassRemoval(PlayerClassInfo removedClass) {
         if (isServerSide()) {
-            MKUltra.packetHandler.sendTo(new ClassUpdatePacket(removedClass, true), (EntityPlayerMP) player);
+            MKUltra.packetHandler.sendTo(new ClassUpdatePacket(removedClass, ClassUpdatePacket.UpdateType.REMOVE), (EntityPlayerMP) player);
+        }
+    }
+
+    private void sendClassLearn(PlayerClassInfo newClass) {
+        if (isServerSide()) {
+            MKUltra.packetHandler.sendTo(new ClassUpdatePacket(newClass, ClassUpdatePacket.UpdateType.ADD), (EntityPlayerMP) player);
         }
     }
 
@@ -1385,7 +1391,7 @@ public class PlayerData implements IPlayerData {
 
         PlayerClassInfo info = playerClass.createClassInfo();
         knownClasses.put(classId, info);
-        sendBulkClassUpdate();
+        sendClassLearn(info);
         MinecraftForge.EVENT_BUS.post(new PlayerClassEvent.Learned(player, this));
 
         // Learned class
