@@ -80,8 +80,10 @@ public class PlayerClassInfo implements ISupportsPartialSync {
 
     IMessage getUpdateMessage() {
         if (isDirty()) {
-            Log.info("class dirty stack trace");
-            Log.info(dirtyTrace);
+            if (dirtyTrace != null) {
+                Log.info("class dirty stack trace");
+                Log.info(dirtyTrace);
+            }
             IMessage message =  new ClassUpdatePacket(this, ClassUpdatePacket.UpdateType.UPDATE);
             markClean();
             return message;
@@ -184,6 +186,7 @@ public class PlayerClassInfo implements ISupportsPartialSync {
     void putInfo(ResourceLocation abilityId, PlayerAbilityInfo info) {
         abilityInfoMap.put(abilityId, info);
         dirtyAbilities.add(info);
+        checkHotbar();
         markDirty();
     }
 
@@ -203,6 +206,24 @@ public class PlayerClassInfo implements ISupportsPartialSync {
         return getUltimateAbilitiesFromTalents().size() > 0;
     }
 
+    private int getFirstFreeAbilitySlot() {
+        return getSlotForAbility(MKURegistry.INVALID_ABILITY);
+    }
+
+    public boolean tryPlaceOnBar(ResourceLocation abilityId) {
+        int slot = getSlotForAbility(abilityId);
+        if (slot == GameConstants.ACTION_BAR_INVALID_SLOT) {
+            // Skill was just learned so let's try to put it on the bar
+            slot = getFirstFreeAbilitySlot();
+            if (slot != GameConstants.ACTION_BAR_INVALID_SLOT) {
+                setAbilityInSlot(slot, abilityId);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public boolean addPassiveToSlot(ResourceLocation abilityId, int slotIndex) {
         if (canAddPassiveToSlot(abilityId, slotIndex)) {
             for (int i = 0; i < loadedPassives.size(); i++) {
@@ -220,6 +241,7 @@ public class PlayerClassInfo implements ISupportsPartialSync {
     public boolean addUltimateToSlot(ResourceLocation abilityId, int slotIndex) {
         if (canAddUltimateToSlot(abilityId, slotIndex)) {
             loadedUltimates.set(slotIndex, abilityId);
+            tryPlaceOnBar(abilityId);
             markDirty();
             return true;
         }
@@ -242,7 +264,12 @@ public class PlayerClassInfo implements ISupportsPartialSync {
     }
 
     public void clearUltimateSlot(int slotIndex) {
+        ResourceLocation currentAbility = getUltimateForSlot(slotIndex);
         loadedUltimates.set(slotIndex, MKURegistry.INVALID_ABILITY);
+        int barslot = getSlotForAbility(currentAbility);
+        if (barslot != GameConstants.ACTION_BAR_INVALID_SLOT) {
+            setAbilityInSlot(barslot, MKURegistry.INVALID_ABILITY);
+        }
         markDirty();
     }
 
@@ -358,6 +385,19 @@ public class PlayerClassInfo implements ISupportsPartialSync {
             if (instance != null) {
                 instance.removeModifier(entry.getUUID());
             }
+        }
+    }
+
+    private void checkHotbar() {
+        for (int i = 0; i < hotbar.size(); i++) {
+            ResourceLocation abilityId = getAbilityInSlot(i);
+            if (abilityId.equals(MKURegistry.INVALID_ABILITY))
+                continue;
+            PlayerAbilityInfo info = getAbilityInfo(abilityId);
+            if (info == null)
+                continue;
+            if (!info.isCurrentlyKnown())
+                setAbilityInSlot(i, MKURegistry.INVALID_ABILITY);
         }
     }
 
@@ -556,8 +596,12 @@ public class PlayerClassInfo implements ISupportsPartialSync {
                 ResourceLocation abilityId = new ResourceLocation(id);
                 PlayerAbilityInfo current = getAbilityInfo(abilityId);
                 if (current == null) {
-                    Log.error("Tried to deserialize ability update for unknown ability!");
-                    continue;
+                    PlayerAbility ability = MKURegistry.getAbility(abilityId);
+                    if (ability == null) {
+                        continue;
+                    }
+
+                    current = ability.createAbilityInfo();
                 }
 
                 if (!current.deserialize(abilities.getCompoundTag(id))) {

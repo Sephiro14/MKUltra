@@ -268,7 +268,7 @@ public class TalentTreeRecord implements ISupportsPartialSync {
 
         NBTTagCompound updates = tag.getCompoundTag("talentUpdates");
 
-        NBTTagList lineIndices = updates.getTagList(tree.getRegistryName().toString(), Constants.NBT.TAG_COMPOUND);
+        NBTTagList pointUpdates = updates.getTagList(tree.getRegistryName().toString(), Constants.NBT.TAG_COMPOUND);
 
         dirtyTalents.forEach((line, index) -> {
             if (!records.containsKey(line))
@@ -280,10 +280,11 @@ public class TalentTreeRecord implements ISupportsPartialSync {
             entry.setString("line", line);
             entry.setInteger("index", index);
             entry.setInteger("rank", lineRecords.get(index).getRank());
-            lineIndices.appendTag(entry);
+            pointUpdates.appendTag(entry);
         });
+        dirtyTalents.clear();
 
-        updates.setTag(tree.getRegistryName().toString(), lineIndices);
+        updates.setTag(tree.getRegistryName().toString(), pointUpdates);
 
         tag.setTag("talentUpdates", updates);
     }

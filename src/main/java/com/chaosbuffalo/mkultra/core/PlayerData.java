@@ -278,18 +278,13 @@ public class PlayerData implements IPlayerData {
         if (isServerSide()) {
             ResourceLocation currentAbility = activeClass.getUltimateForSlot(slotIndex);
             if (loc.equals(MKURegistry.INVALID_ABILITY) && !currentAbility.equals(MKURegistry.INVALID_ABILITY)) {
-                unlearnAbility(currentAbility, false, true);
                 activeClass.clearUltimateSlot(slotIndex);
                 return true;
             } else {
                 if (!currentAbility.equals(MKURegistry.INVALID_ABILITY)) {
                     activeClass.clearUltimateSlot(slotIndex);
-                    unlearnAbility(currentAbility, false, true);
                 }
                 boolean didWork = activeClass.addUltimateToSlot(loc, slotIndex);
-                if (didWork) {
-                    learnAbility(loc, false);
-                }
                 return didWork;
             }
         } else {
@@ -309,7 +304,6 @@ public class PlayerData implements IPlayerData {
         int slot = classInfo.getUltimateSlot(abilityId);
         if (slot != GameConstants.ULTIMATE_INVALID_SLOT) {
             classInfo.clearUltimateSlot(slot);
-            unlearnAbility(abilityId, false, true);
         }
     }
 
@@ -634,15 +628,21 @@ public class PlayerData implements IPlayerData {
 
     @Override
     public boolean learnAbility(ResourceLocation abilityId, boolean consumePoint) {
+        PlayerAbility ability = MKURegistry.getAbility(abilityId);
+        if (ability == null) {
+            return false;
+        }
+        return learnAbility(ability, consumePoint, true);
+    }
+
+    public boolean learnAbility(PlayerAbility ability, boolean consumePoint, boolean placeOnBar) {
         // Can't learn an ability without a class
         PlayerClassInfo classInfo = getActiveClass();
         if (classInfo == null)
             return false;
 
-        PlayerAbility ability = MKURegistry.getAbility(abilityId);
-        if (ability == null) {
-            return false;
-        }
+        ResourceLocation abilityId = ability.getAbilityId();
+
         PlayerAbilityInfo info = classInfo.getAbilityInfo(abilityId);
         if (info == null) {
             info = ability.createAbilityInfo();
@@ -673,17 +673,10 @@ public class PlayerData implements IPlayerData {
         classInfo.putInfo(abilityId, info);
         updateToggleAbility(info);
 
-        int slot = classInfo.getSlotForAbility(abilityId);
-        if (slot == GameConstants.ACTION_BAR_INVALID_SLOT) {
-            // Skill was just learned so let's try to put it on the bar
-            slot = getFirstFreeAbilitySlot(classInfo);
-            if (slot != GameConstants.ACTION_BAR_INVALID_SLOT) {
-                classInfo.setAbilityInSlot(slot, abilityId);
+        if (placeOnBar) {
+            if (classInfo.tryPlaceOnBar(abilityId)) {
+                updateActiveAbilities();
             }
-        }
-
-        if (slot != GameConstants.ACTION_BAR_INVALID_SLOT) {
-            updateActiveAbilitySlot(classInfo, slot);
         }
 
         return true;

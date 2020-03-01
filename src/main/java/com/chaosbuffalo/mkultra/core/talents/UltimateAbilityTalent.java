@@ -19,12 +19,23 @@ public class UltimateAbilityTalent extends BaseTalent {
     }
 
     @Override
+    public boolean onAdd(EntityPlayer player, PlayerClassInfo classInfo) {
+        PlayerData data = (PlayerData) MKUPlayerData.get(player);
+        if (data == null)
+            return false;
+
+        data.learnAbility(getAbility(), false, false);
+        return true;
+    }
+
+    @Override
     public boolean onRemove(EntityPlayer player, PlayerClassInfo classInfo) {
         PlayerData data = (PlayerData) MKUPlayerData.get(player);
         if (data == null)
             return false;
 
         data.clearUltimate(getAbility().getAbilityId());
+        data.unlearnAbility(getAbility().getAbilityId(), false, true);
         return true;
     }
 
