@@ -671,7 +671,6 @@ public class PlayerData implements IPlayerData {
 
         classInfo.putInfo(abilityId, info);
         updateToggleAbility(info);
-        sendSingleAbilityUpdate(info);
 
         int slot = classInfo.getSlotForAbility(abilityId);
         if (slot == GameConstants.ACTION_BAR_INVALID_SLOT) {
@@ -715,8 +714,8 @@ public class PlayerData implements IPlayerData {
             classInfo.setUnspentPoints(curUnspent + ranks);
         }
 
+        classInfo.putInfo(abilityId, info);
         updateToggleAbility(info);
-        sendSingleAbilityUpdate(info);
 
         int slot = classInfo.getSlotForAbility(abilityId);
         if (slot != GameConstants.ACTION_BAR_INVALID_SLOT) {
@@ -1143,12 +1142,6 @@ public class PlayerData implements IPlayerData {
         if (updateMessage != null) {
             Log.info("sending player update");
             MKUltra.packetHandler.sendToAllTrackingAndSelf(updateMessage, (EntityPlayerMP) player);
-        }
-    }
-
-    private void sendSingleAbilityUpdate(PlayerAbilityInfo info) {
-        if (isServerSide()) {
-            MKUltra.packetHandler.sendTo(new AbilityUpdatePacket(info), (EntityPlayerMP) player);
         }
     }
 

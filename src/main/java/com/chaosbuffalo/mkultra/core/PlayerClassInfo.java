@@ -28,7 +28,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.*;
 
-public class PlayerClassInfo {
+public class PlayerClassInfo implements ISupportsPartialSync {
     private ResourceLocation classId;
     private int level;
     private int unspentPoints;
@@ -40,6 +40,7 @@ public class PlayerClassInfo {
     private List<ResourceLocation> loadedPassives;
     private List<ResourceLocation> loadedUltimates;
     private Map<ResourceLocation, PlayerAbilityInfo> abilityInfoMap = new HashMap<>(GameConstants.ACTION_BAR_SIZE);
+    private List<PlayerAbilityInfo> dirtyAbilities = new ArrayList<>();
     private boolean dirty;
     private String dirtyTrace;
 
@@ -182,6 +183,7 @@ public class PlayerClassInfo {
 
     void putInfo(ResourceLocation abilityId, PlayerAbilityInfo info) {
         abilityInfoMap.put(abilityId, info);
+        dirtyAbilities.add(info);
         markDirty();
     }
 
@@ -523,9 +525,22 @@ public class PlayerClassInfo {
     public void serializeSync(NBTTagCompound tag) {
         tag.setInteger("level", level);
         tag.setInteger("unspentPoints", unspentPoints);
-//        writeNBTAbilityArray(tag, "abilitySpendOrder", abilitySpendOrder, GameConstants.MAX_CLASS_LEVEL);
         writeNBTAbilityArray(tag, "hotbar", hotbar, GameConstants.ACTION_BAR_SIZE);
-        serializeAbilities(tag);
+
+        writeActiveTalentInfo(tag);
+
+        if (dirtyAbilities.size() > 0) {
+            NBTTagCompound abilities = new NBTTagCompound();
+            for (PlayerAbilityInfo info : dirtyAbilities) {
+                NBTTagCompound ability = new NBTTagCompound();
+                info.serialize(ability);
+                abilities.setTag(info.getId().toString(), ability);
+            }
+
+            tag.setTag("abilityUpdates", abilities);
+
+            dirtyAbilities.clear();
+        }
         for (TalentTreeRecord record : talentTrees.values()) {
             record.serializeUpdate(tag);
         }
@@ -536,23 +551,40 @@ public class PlayerClassInfo {
     public void deserializeSync(NBTTagCompound tag) {
         level = tag.getInteger("level");
         unspentPoints = tag.getInteger("unspentPoints");
-//        abilitySpendOrder = parseNBTAbilityList(tag, "abilitySpendOrder", GameConstants.MAX_CLASS_LEVEL);
         hotbar = parseNBTAbilityList(tag, "hotbar", GameConstants.ACTION_BAR_SIZE);
-        deserializeAbilities(tag);
+
+        readActiveTalentInfo(tag);
+
+        if (tag.hasKey("abilityUpdates")) {
+            NBTTagCompound abilities = tag.getCompoundTag("abilityUpdates");
+
+            for (String id : abilities.getKeySet()) {
+                ResourceLocation abilityId = new ResourceLocation(id);
+                PlayerAbilityInfo current = getAbilityInfo(abilityId);
+                if (current == null) {
+                    Log.error("Tried to deserialize ability update for unknown ability!");
+                    continue;
+                }
+
+                if (!current.deserialize(abilities.getCompoundTag(id))) {
+                    Log.error("Failed to deserialize ability update for %s", id);
+                    continue;
+                }
+            }
+        }
         for (TalentTreeRecord record : talentTrees.values()) {
             record.deserializeUpdate(tag);
         }
     }
 
-    public void serializeTalentInfo(NBTTagCompound tag) {
+    private void writeActiveTalentInfo(NBTTagCompound tag) {
         tag.setInteger("unspentTalentPoints", unspentTalentPoints);
         tag.setInteger("totalTalentPoints", totalTalentPoints);
         writeNBTAbilityArray(tag, "loadedPassives", loadedPassives, GameConstants.MAX_PASSIVES);
         writeNBTAbilityArray(tag, "loadedUltimates", loadedUltimates, GameConstants.MAX_ULTIMATES);
-        writeTalentTrees(tag);
     }
 
-    public void deserializeTalentInfo(NBTTagCompound tag) {
+    private void readActiveTalentInfo(NBTTagCompound tag) {
         unspentTalentPoints = tag.getInteger("unspentTalentPoints");
         totalTalentPoints = tag.getInteger("totalTalentPoints");
         if (tag.hasKey("loadedPassives")) {
@@ -561,6 +593,15 @@ public class PlayerClassInfo {
         if (tag.hasKey("loadedUltimates")) {
             loadedUltimates = parseNBTAbilityList(tag, "loadedUltimates", GameConstants.MAX_ULTIMATES);
         }
+    }
+
+    public void serializeTalentInfo(NBTTagCompound tag) {
+        writeActiveTalentInfo(tag);
+        writeTalentTrees(tag);
+    }
+
+    public void deserializeTalentInfo(NBTTagCompound tag) {
+        readActiveTalentInfo(tag);
         parseTalentTrees(tag);
         checkSlottedTalents();
     }
@@ -673,5 +714,20 @@ public class PlayerClassInfo {
 
     public TalentTreeRecord getTalentTree(ResourceLocation loc) {
         return talentTrees.get(loc);
+    }
+
+    @Override
+    public boolean isDirty() {
+        return false;
+    }
+
+    @Override
+    public void deserializeUpdate(NBTTagCompound tag) {
+        deserializeSync(tag);
+    }
+
+    @Override
+    public void serializeUpdate(NBTTagCompound tag) {
+        serializeSync(tag);
     }
 }
