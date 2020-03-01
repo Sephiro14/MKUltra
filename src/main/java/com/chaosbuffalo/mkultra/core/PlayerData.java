@@ -636,14 +636,12 @@ public class PlayerData implements IPlayerData {
             }
 
             if (ability instanceof PlayerToggleAbility) {
-                PlayerAbilityInfo info = classInfo.getAbilityInfo(abilityId);
-                if (info != null) {
-                    updateToggleAbility(info);
-                }
+                updateToggleAbility(ability);
             }
+            return true;
         }
 
-        return true;
+        return false;
     }
 
     public boolean unlearnAbility(ResourceLocation abilityId, boolean refundPoint, boolean allRanks) {
@@ -651,44 +649,23 @@ public class PlayerData implements IPlayerData {
         if (classInfo == null)
             return false;
 
-        PlayerAbilityInfo info = classInfo.getAbilityInfo(abilityId);
-        if (info == null || !info.isCurrentlyKnown()) {
-            // We never knew it or it exists but is currently unlearned
-            return false;
+        if (classInfo.unlearnAbility(abilityId, refundPoint, allRanks)) {
+            updateActiveAbilitySlot(abilityId);
+            PlayerAbility ability = MKURegistry.getAbility(abilityId);
+            if (ability instanceof PlayerToggleAbility) {
+                updateToggleAbility(ability);
+            }
+            return true;
         }
 
-        int ranks = 0;
-        if (allRanks) {
-            while (info.isCurrentlyKnown())
-                if (info.downgrade())
-                    ranks += 1;
-        } else {
-            if (info.downgrade())
-                ranks += 1;
-        }
-
-        if (refundPoint) {
-            int curUnspent = classInfo.getUnspentPoints();
-            classInfo.setUnspentPoints(curUnspent + ranks);
-        }
-
-        classInfo.abilityUpdate(abilityId, info);
-        updateToggleAbility(info);
-
-        int slot = classInfo.getSlotForAbility(abilityId);
-        if (slot != GameConstants.ACTION_BAR_INVALID_SLOT) {
-            updateActiveAbilitySlot(classInfo, slot);
-        }
-
-        return true;
+        return false;
     }
 
-    private void updateToggleAbility(PlayerAbilityInfo info) {
-        PlayerAbility ability = info.getAbility();
+    private void updateToggleAbility(PlayerAbility ability) {
         if (ability instanceof PlayerToggleAbility && player != null) {
             PlayerToggleAbility toggle = (PlayerToggleAbility) ability;
-
-            if (info.isCurrentlyKnown()) {
+            PlayerAbilityInfo info = getAbilityInfo(ability.getAbilityId());
+            if (info != null && info.isCurrentlyKnown()) {
                 // If this is a toggle ability we must re-apply the effect to make sure it's working at the proper rank
                 if (player.isPotionActive(toggle.getToggleEffect())) {
                     toggle.removeEffect(player, this, player.getEntityWorld());

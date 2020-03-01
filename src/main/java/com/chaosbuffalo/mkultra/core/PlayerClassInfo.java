@@ -587,6 +587,32 @@ public class PlayerClassInfo implements ISupportsPartialSync {
         return true;
     }
 
+    public boolean unlearnAbility(ResourceLocation abilityId, boolean refundPoint, boolean allRanks) {
+        PlayerAbilityInfo info = getAbilityInfo(abilityId);
+        if (info == null || !info.isCurrentlyKnown()) {
+            // We never knew it or it exists but is currently unlearned
+            return false;
+        }
+
+        int ranks = 0;
+        if (allRanks) {
+            while (info.isCurrentlyKnown())
+                if (info.downgrade())
+                    ranks += 1;
+        } else {
+            if (info.downgrade())
+                ranks += 1;
+        }
+
+        if (refundPoint) {
+            int curUnspent = getUnspentPoints();
+            setUnspentPoints(curUnspent + ranks);
+        }
+
+        abilityUpdate(abilityId, info);
+        return true;
+    }
+
     private int getAbilityLearnIndex() {
         return getLevel() - getUnspentPoints();
     }
