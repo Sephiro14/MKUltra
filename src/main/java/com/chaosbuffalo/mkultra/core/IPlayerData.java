@@ -127,10 +127,10 @@ public interface IPlayerData {
     List<ResourceLocation> getActiveUltimates();
 
     @Nullable
-    Set<PlayerPassiveAbility> getLearnedPassives();
+    Set<PlayerPassiveAbility> getKnownPassives();
 
     @Nullable
-    Set<PlayerAbility> getLearnedUltimates();
+    Set<PlayerAbility> getKnownUltimates();
 
     boolean hasUltimates();
 

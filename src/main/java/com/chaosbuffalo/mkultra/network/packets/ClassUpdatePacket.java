@@ -10,49 +10,68 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
+import java.util.*;
 
 public class ClassUpdatePacket implements IMessage {
 
-    private Collection<PlayerClassInfo> classes;
-    private boolean fullUpdate;
+    public enum UpdateType {
+        ADD,
+        UPDATE,
+        REMOVE
+    }
+
+    private Map<ResourceLocation, NBTTagCompound> classes;
 
     public ClassUpdatePacket() {
+        classes = new HashMap<>();
     }
 
     public ClassUpdatePacket(Collection<PlayerClassInfo> knownClasses) {
-        classes = Collections.unmodifiableCollection(knownClasses);
-        fullUpdate = true;
+        this();
+        knownClasses.forEach(this::newClass);
     }
 
-    public ClassUpdatePacket(PlayerClassInfo info) {
-        classes = Collections.singletonList(info);
-        fullUpdate = false;
+    public ClassUpdatePacket(PlayerClassInfo info, UpdateType action) {
+        this();
+        if (action == UpdateType.ADD) {
+            newClass(info);
+        } else if (action == UpdateType.UPDATE) {
+            updateClass(info);
+        } else if (action == UpdateType.REMOVE) {
+            removeClass(info.getClassId());
+        }
+    }
+
+    void newClass(PlayerClassInfo classInfo) {
+        NBTTagCompound tag = new NBTTagCompound();
+        tag.setString("sync", UpdateType.ADD.toString());
+        classInfo.serialize(tag);
+        classes.put(classInfo.getClassId(), tag);
+    }
+
+    void updateClass(PlayerClassInfo classInfo) {
+        NBTTagCompound tag = new NBTTagCompound();
+        tag.setString("sync", UpdateType.UPDATE.toString());
+        classInfo.serializeUpdate(tag);
+        classes.put(classInfo.getClassId(), tag);
+    }
+
+    void removeClass(ResourceLocation classId) {
+        NBTTagCompound tag = new NBTTagCompound();
+        tag.setString("sync", UpdateType.REMOVE.toString());
+        classes.put(classId, tag);
     }
 
     @Override
     public void fromBytes(ByteBuf buf) {
         PacketBuffer pb = new PacketBuffer(buf);
-        int count = pb.readInt();
-        fullUpdate = pb.readBoolean();
-        classes = new ArrayList<>(count);
+        int count = pb.readVarInt();
 
         try {
-            NBTTagCompound list = pb.readCompoundTag();
-            if (list == null) {
-                return;
-            }
-            for (String key : list.getKeySet()) {
-                ResourceLocation classId = new ResourceLocation(key);
-                PlayerClass playerClass = MKURegistry.getClass(classId);
-                if (playerClass != null) {
-                    NBTTagCompound tag = list.getCompoundTag(key);
-                    PlayerClassInfo classInfo = playerClass.createClassInfo();
-                    classInfo.deserialize(tag);
-                    classes.add(classInfo);
-                }
+            for (int i = 0; i < count; i++) {
+                ResourceLocation id = pb.readResourceLocation();
+                NBTTagCompound tag = pb.readCompoundTag();
+                classes.put(id, tag);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -62,15 +81,13 @@ public class ClassUpdatePacket implements IMessage {
     @Override
     public void toBytes(ByteBuf buf) {
         PacketBuffer pb = new PacketBuffer(buf);
-        pb.writeInt(classes.size());
-        pb.writeBoolean(fullUpdate);
+        pb.writeVarInt(classes.size());
 
         NBTTagCompound list = new NBTTagCompound();
-        for (PlayerClassInfo info : classes) {
-            NBTTagCompound tag = new NBTTagCompound();
-            info.serialize(tag);
-            list.setTag(info.getClassId().toString(), tag);
-        }
+        classes.forEach((id, tag) -> {
+            pb.writeResourceLocation(id);
+            pb.writeCompoundTag(tag);
+        });
         pb.writeCompoundTag(list);
     }
 
@@ -85,7 +102,7 @@ public class ClassUpdatePacket implements IMessage {
             if (data == null)
                 return;
 
-            data.clientBulkKnownClassUpdate(msg.classes, msg.fullUpdate);
+            data.clientBulkKnownClassUpdate(msg.classes);
         }
     }
 }

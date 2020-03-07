@@ -232,9 +232,9 @@ public class PlayerClassScreen extends MKScreen implements IPlayerDataScreen {
             abilityHeight = drawAbility(ability, pData, abilityList, abilityHeight, i, true);
             lastIndex += 1;
         }
-        Set<PlayerAbility> learnedUlts = pData.getLearnedUltimates();
+        Set<PlayerAbility> learnedUlts = pData.getKnownUltimates();
         if (learnedUlts != null){
-            List<PlayerAbility> ultimates = new ArrayList<>(pData.getLearnedUltimates());
+            List<PlayerAbility> ultimates = new ArrayList<>(pData.getKnownUltimates());
             ultimates.sort((a1, a2) -> a1.getAbilityName().compareToIgnoreCase(a2.getAbilityName()));
             for (PlayerAbility ult : ultimates){
                 abilityHeight = drawAbility(ult, pData, abilityList, abilityHeight, lastIndex, false);

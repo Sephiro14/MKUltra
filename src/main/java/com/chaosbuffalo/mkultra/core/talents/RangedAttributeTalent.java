@@ -87,15 +87,13 @@ public class RangedAttributeTalent extends BaseTalent {
 
     @Override
     public boolean onAdd(EntityPlayer player, PlayerClassInfo classInfo) {
-        classInfo.removeAttributesModifiersFromPlayer(player);
-        classInfo.applyAttributesModifiersToPlayer(player);
+        classInfo.refreshAttributeModifiers(player, attr);
         return true;
     }
 
     @Override
     public boolean onRemove(EntityPlayer player, PlayerClassInfo classInfo) {
-        classInfo.removeAttributesModifiersFromPlayer(player);
-        classInfo.applyAttributesModifiersToPlayer(player);
+        classInfo.refreshAttributeModifiers(player, attr);
         return true;
     }
 }

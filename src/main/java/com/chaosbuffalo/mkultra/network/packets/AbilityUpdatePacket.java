@@ -27,7 +27,7 @@ public class AbilityUpdatePacket implements IMessage {
     }
 
     public AbilityUpdatePacket(Collection<PlayerAbilityInfo> knownSkills) {
-        skills = Collections.unmodifiableCollection(knownSkills);
+        skills = knownSkills;
     }
 
     @Override

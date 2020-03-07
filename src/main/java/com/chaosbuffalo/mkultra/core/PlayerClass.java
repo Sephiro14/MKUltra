@@ -26,7 +26,7 @@ public abstract class PlayerClass extends IForgeRegistryEntry.Impl<PlayerClass> 
     }
 
     public PlayerClassInfo createClassInfo() {
-        return new PlayerClassInfo(getClassId());
+        return new PlayerClassInfo(this);
     }
 
     @SideOnly(Side.CLIENT)

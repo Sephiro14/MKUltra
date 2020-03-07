@@ -62,7 +62,7 @@ public class PlayerAbilityButton extends MKButton {
     @Override
     public void longHoverDraw(Minecraft mc, int x, int y, int width, int height, int mouseX, int mouseY, float partialTicks) {
         if (type == AbilityType.PASSIVE){
-            Set<PlayerPassiveAbility> learned = playerData.getLearnedPassives();
+            Set<PlayerPassiveAbility> learned = playerData.getKnownPassives();
             if (learned == null || learned.size() == 0) {
                 if (getScreen() != null) {
                     getScreen().addHoveringText(new HoveringTextInstruction(
@@ -77,7 +77,7 @@ public class PlayerAbilityButton extends MKButton {
                 }
             }
         } else if (type == AbilityType.ULTIMATE){
-            Set<PlayerAbility> learned = playerData.getLearnedUltimates();
+            Set<PlayerAbility> learned = playerData.getKnownUltimates();
             if (learned == null || learned.size() == 0) {
                 if (getScreen() != null) {
                     getScreen().addHoveringText(new HoveringTextInstruction(
@@ -117,7 +117,7 @@ public class PlayerAbilityButton extends MKButton {
         layout.doSetWidth(true);
         scrollView.addWidget(layout);
         if (type == AbilityType.PASSIVE){
-            Set<PlayerPassiveAbility> learned = playerData.getLearnedPassives();
+            Set<PlayerPassiveAbility> learned = playerData.getKnownPassives();
             if (learned == null || learned.size() == 0) {
                 return null;
             }
@@ -130,7 +130,7 @@ public class PlayerAbilityButton extends MKButton {
                 layout.addWidget(button);
             }
         } else if (type == AbilityType.ULTIMATE){
-            Set<PlayerAbility> learned = playerData.getLearnedUltimates();
+            Set<PlayerAbility> learned = playerData.getKnownUltimates();
             if (learned == null || learned.size() == 0) {
                 return null;
             }
