@@ -1062,7 +1062,7 @@ public class PlayerData implements IPlayerData {
         if (activeClass != null) {
             IMessage message = activeClass.getUpdateMessage();
             if (message != null) {
-                Log.info("sending class update");
+//                Log.info("sending class update");
                 MinecraftForge.EVENT_BUS.post(new PlayerClassEvent.Updated(player, this, activeClass.getClassId()));
                 MKUltra.packetHandler.sendTo(message, (EntityPlayerMP) player);
             }
@@ -1070,7 +1070,7 @@ public class PlayerData implements IPlayerData {
 
         IMessage updateMessage = getUpdateMessage();
         if (updateMessage != null) {
-            Log.info("sending player update");
+//            Log.info("sending player update");
             MKUltra.packetHandler.sendToAllTrackingAndSelf(updateMessage, (EntityPlayerMP) player);
         }
     }
@@ -1116,7 +1116,7 @@ public class PlayerData implements IPlayerData {
         info.forEach((id, tag) -> {
             ClassUpdatePacket.UpdateType syncType = ClassUpdatePacket.UpdateType.valueOf(tag.getString("sync"));
             if (syncType == ClassUpdatePacket.UpdateType.REMOVE) {
-                Log.info("removing known class %s", id);
+//                Log.info("removing known class %s", id);
                 knownClasses.remove(id);
                 return;
             }
@@ -1126,7 +1126,7 @@ public class PlayerData implements IPlayerData {
                 if (syncType == ClassUpdatePacket.UpdateType.UPDATE) {
                     throw new RuntimeException(String.format("Client received update packet for unknown class %s!", id));
                 }
-                Log.info("adding new class %s", id);
+//                Log.info("adding new class %s", id);
                 PlayerClass playerClass = MKURegistry.getClass(id);
                 if (playerClass == null) {
                     Log.error("Failed to get class object %s for client update!", id);
@@ -1135,7 +1135,7 @@ public class PlayerData implements IPlayerData {
                 classInfo = playerClass.createClassInfo();
                 classInfo.deserialize(tag);
             } else {
-                Log.info("class update %s", id);
+//                Log.info("class update %s", id);
                 classInfo.deserializeUpdate(tag);
             }
 
@@ -1212,7 +1212,7 @@ public class PlayerData implements IPlayerData {
 
     public void serializeClientUpdate(NBTTagCompound tag) {
         dirtyUpdater.serializeUpdate(tag);
-        Log.info(tag.toString());
+//        Log.info(tag.toString());
     }
 
     @SideOnly(Side.CLIENT)
@@ -1284,7 +1284,6 @@ public class PlayerData implements IPlayerData {
                 PlayerAbility ability = info.getAbility();
 
                 int currentRank = getAbilityRank(ability.getAbilityId());
-                Log.info("death check for %s %d", ability.getAbilityId(), currentRank);
                 if (ability.getType() != PlayerAbility.AbilityType.Active)
                     continue;
                 // Subtract 1 because getRequiredLevel is a little weird. It actually tells you the required

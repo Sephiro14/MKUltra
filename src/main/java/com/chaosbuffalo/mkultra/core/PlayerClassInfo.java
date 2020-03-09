@@ -615,8 +615,7 @@ public class PlayerClassInfo implements ISupportsPartialSync {
     @Override
     public void serializeUpdate(NBTTagCompound tag) {
         dirtyUpdater.serializeUpdate(tag);
-
-        Log.info(tag.toString());
+//        Log.info(tag.toString());
     }
 
     @Override
